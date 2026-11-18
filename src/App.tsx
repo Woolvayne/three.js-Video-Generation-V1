@@ -913,32 +913,25 @@ export default function App() {
     heroTitle.position.set(0, 5.4, -4.2);
     root.add(heroTitle);
 
-    const mapPad = new THREE.Mesh(new THREE.CylinderGeometry(3.9, 4.4, 0.32, 6), stdMat(0x182232, 0.84));
-    mapPad.position.set(0, 0.25, -11.5);
-    root.add(mapPad);
+    // A single tabletop composition, sized for the 9:16 camera.
+    const atlas = new THREE.Group();
+    atlas.position.set(0, 0, -11.5);
+    atlas.visible = false;
+    root.add(atlas);
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.32, 10.4), stdMat(0x182232));
+    pad.position.y = 0.25;
+    atlas.add(pad);
     const map = createGermanyMapGroup();
-    map.position.set(0, 0.42, -11.5);
-    map.scale.setScalar(2.2);
-    map.visible = false;
-    root.add(map);
-    const rings = createBlastRings();
-    rings.position.set(0.68, 0.42, -10.95);
-    rings.scale.setScalar(0);
-    rings.visible = false;
-    root.add(rings);
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 12), new THREE.MeshStandardMaterial({ color: PALETTE.red, emissive: PALETTE.red, emissiveIntensity: 1.5 }));
-    dot.position.set(0.68, 0.95, -10.95);
-    dot.visible = false;
-    root.add(dot);
-
-    const card1 = makeTextSprite(["ca. 1,6 km · 5 psi", "Schwere Schäden"], { font: 28, width: 560, height: 140, bg: "rgba(120,20,20,0.86)" });
-    card1.position.set(2.9, 2.1, -10.2);
-    card1.visible = false;
-    root.add(card1);
-    const card2 = makeTextSprite(["ca. 4,5 km · 1 psi", "Fensterschäden"], { font: 28, width: 560, height: 140, bg: "rgba(160,90,12,0.86)" });
-    card2.position.set(2.9, 3.05, -10.65);
-    card2.visible = false;
-    root.add(card2);
+    map.position.y = 0.43;
+    map.scale.setScalar(0.86);
+    atlas.add(map);
+    const label = makeTextSprite(["MITTELSTADT A.", "Schematische Übersicht"], { width: 580, height: 140, font: 38 });
+    label.position.set(0, 0.95, -4.2);
+    label.scale.multiplyScalar(1.6);
+    atlas.add(label);
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffbd70 }));
+    dot.position.set(0.25, 0.69, 0.22);
+    atlas.add(dot);
 
     return {
       id: "s01_hook",
@@ -955,26 +948,19 @@ export default function App() {
         animateWalk(char, tLocal, 2.5);
         if (tLocal < 2.8) {
           char.visible = true;
-          map.visible = rings.visible = dot.visible = card1.visible = card2.visible = false;
+          atlas.visible = false;
           char.position.z = 4 - tLocal * 0.55;
           camera.position.set(-2.2 + tLocal * 0.35, 2.5, 8 - tLocal * 0.7);
           camera.lookAt(char.position.x, 1.4, char.position.z - 1.6);
           (heroTitle.material as THREE.SpriteMaterial).opacity = 1;
         } else {
           const p = easeInOutCubic((tLocal - 2.8) / 2.4);
-          map.visible = true;
-          rings.visible = true;
-          dot.visible = true;
+          atlas.visible = true;
           char.visible = p < 0.7;
-          camera.position.set(lerp(-1.4, 0.8, p), lerp(4.2, 7.2, p), lerp(3.6, -5.0, p));
-          camera.lookAt(lerp(0, 0.1, p), 0.35, lerp(-5, -11.1, p));
-          rings.scale.setScalar(easeOutCubic((tLocal - 3.4) / 1.8));
-          dot.scale.setScalar(1 + Math.sin(tLocal * 7) * 0.35);
-          dot.position.y = 0.95 + Math.sin(tLocal * 4) * 0.06;
-          card1.visible = tLocal > 4.2;
-          card2.visible = tLocal > 5.0;
-          if (card1.visible) card1.scale.setScalar(easeOutCubic((tLocal - 4.2) / 0.8) * 2.2);
-          if (card2.visible) card2.scale.setScalar(easeOutCubic((tLocal - 5.0) / 0.8) * 2.2);
+          char.position.z = 4 - 2.8 * 0.55;
+          camera.position.set(lerp(-1.22, 0, p), lerp(2.5, 17.5, p), lerp(6.04, -6, p));
+          camera.lookAt(lerp(char.position.x, 0, p), lerp(1.4, 0.45, p), lerp(char.position.z - 1.6, -11.5, p));
+          dot.scale.setScalar(1 + 0.12 * Math.sin(tLocal * 3));
           (heroTitle.material as THREE.SpriteMaterial).opacity = Math.max(0, 1 - p * 1.1);
         }
       },
