@@ -9,16 +9,6 @@ export interface SceneEntry {
 
 const raw = [
   {
-    id: "s00_note",
-    duration: 4,
-    voText: "",
-    subtitle: [
-      "Hypothetisches Szenario.",
-      "Keine Vorhersage.",
-      "Quellen: NUKEMAP, BBK.",
-    ],
-  },
-  {
     id: "s01_hook",
     duration: 8,
     voText:
