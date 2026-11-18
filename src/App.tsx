@@ -883,6 +883,23 @@ export default function App() {
   function buildHookRuntime(): Runtime {
     const root = new THREE.Group();
     setSceneBackground("dusk");
+    // Amber light catches the roofs; atmospheric perspective keeps the foreground clear.
+    const haze = new THREE.FogExp2(0xd5703a, 0.028);
+    const amber = new THREE.DirectionalLight(0xff8b36, 1.9);
+    amber.position.set(-9, 7, -15);
+    root.add(amber);
+    const ashPositions = new Float32Array(72 * 3);
+    const seeds = seededRng(204);
+    for (let i = 0; i < ashPositions.length; i += 3) {
+      ashPositions[i] = (seeds() - 0.5) * 15;
+      ashPositions[i + 1] = seeds() * 6;
+      ashPositions[i + 2] = -12 + seeds() * 16;
+    }
+    const ashGeo = new THREE.BufferGeometry();
+    ashGeo.setAttribute("position", new THREE.BufferAttribute(ashPositions, 3));
+    const ashMat = new THREE.PointsMaterial({ color: 0xffbb72, size: 0.035, transparent: true, depthWrite: false });
+    const ash = new THREE.Points(ashGeo, ashMat);
+    root.add(ash);
     createGround(root, 180, PALETTE.grassDark);
     createBackdrop(root, { dusk: true, sun: true, mountains: true, water: true });
     createRoadGrid(root, 2, 12, 2.7);
@@ -926,10 +943,19 @@ export default function App() {
     return {
       id: "s01_hook",
       root,
-      previewTime: 5.4,
+      previewTime: 1.5,
       update: (tLocal, camera) => {
+        const warmth = 1 - easeInOutCubic((tLocal - 1.7) / 2.1);
+        haze.density = 0.028 * warmth;
+        sceneRef.current!.fog = warmth > 0 ? haze : null;
+        amber.intensity = warmth * (1.6 + 0.6 * Math.sin(Math.min(tLocal, 2.8) * 1.1));
+        ash.visible = warmth > 0;
+        ashMat.opacity = 0.78 * warmth;
+        ash.position.set(tLocal * 0.24, tLocal * 0.12, Math.sin(tLocal * 0.8) * 0.22);
         animateWalk(char, tLocal, 2.5);
         if (tLocal < 2.8) {
+          char.visible = true;
+          map.visible = rings.visible = dot.visible = card1.visible = card2.visible = false;
           char.position.z = 4 - tLocal * 0.55;
           camera.position.set(-2.2 + tLocal * 0.35, 2.5, 8 - tLocal * 0.7);
           camera.lookAt(char.position.x, 1.4, char.position.z - 1.6);
@@ -952,7 +978,7 @@ export default function App() {
           (heroTitle.material as THREE.SpriteMaterial).opacity = Math.max(0, 1 - p * 1.1);
         }
       },
-      cleanup: () => {},
+      cleanup: () => { ashGeo.dispose(); ashMat.dispose(); amber.dispose(); },
     };
   }
 
