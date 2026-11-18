@@ -261,13 +261,12 @@ function createCharacter() {
   hair.scale.set(1.18, 0.72, 1.05);
   root.add(hair);
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.76, 0.34), stdMat(PALETTE.teal, 0.82));
+  // Color the front face directly: overlapping jacket panels flickered at a distance.
+  const jacket = stdMat(PALETTE.teal, 0.82);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.76, 0.34),
+    [jacket, jacket, jacket, jacket, stdMat(PALETTE.warm, 0.78), jacket]);
   torso.position.y = 1.08;
   root.add(torso);
-
-  const accent = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.78, 0.08), stdMat(PALETTE.warm, 0.78));
-  accent.position.set(0, 1.08, 0.13);
-  root.add(accent);
 
   const armGeo = new THREE.BoxGeometry(0.2, 0.62, 0.2);
   const legGeo = new THREE.BoxGeometry(0.24, 0.7, 0.24);
@@ -975,21 +974,26 @@ export default function App() {
     lampHead.position.set(2.45, 3.0, -2.4);
     root.add(lampHead);
 
-    const flashPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(200, 200),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthTest: false })
-    );
-    flashPlane.renderOrder = 60;
-    flashPlane.position.set(0, 8, -35);
-    root.add(flashPlane);
-
-    const blastSphere = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 18, 18),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, wireframe: true })
-    );
-    blastSphere.visible = false;
-    blastSphere.position.set(0, 2, -24);
-    root.add(blastSphere);
+    // Localized, soft-edged light behind the skyline instead of a white screen.
+    const glowCanvas = document.createElement("canvas");
+    glowCanvas.width = glowCanvas.height = 128;
+    const ctx = glowCanvas.getContext("2d")!;
+    const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gradient.addColorStop(0, "#fff1b6");
+    gradient.addColorStop(0.22, "rgba(255,175,74,.85)");
+    gradient.addColorStop(0.55, "rgba(244,92,40,.38)");
+    gradient.addColorStop(1, "rgba(244,92,40,0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 128, 128);
+    const texture = new THREE.CanvasTexture(glowCanvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    glow.position.set(-5, 4, -24);
+    root.add(glow);
+    const fill = new THREE.DirectionalLight(0xffbb73, 0);
+    fill.position.copy(glow.position);
+    root.add(fill);
 
     const debrisGeo = new THREE.BufferGeometry();
     const debrisPositions = new Float32Array(360 * 3);
@@ -1002,7 +1006,8 @@ export default function App() {
     }
     debrisPositions.set(basePositions);
     debrisGeo.setAttribute("position", new THREE.BufferAttribute(debrisPositions, 3));
-    const debris = new THREE.Points(debrisGeo, new THREE.PointsMaterial({ color: 0x9ec8ff, size: 0.08, transparent: true, opacity: 0.76 }));
+    const debris = new THREE.Points(debrisGeo, new THREE.PointsMaterial({ color: 0xbd997f, size: 0.08, transparent: true, opacity: 0.76 }));
+    debris.frustumCulled = false;
     debris.visible = false;
     root.add(debris);
 
@@ -1011,28 +1016,22 @@ export default function App() {
       root,
       previewTime: 6.8,
       update: (tLocal, camera) => {
-        if (tLocal < 5.1) {
-          animateWalk(char, tLocal, 3.6);
-          char.position.z = 4 - tLocal * 0.45;
-        }
-        const shoulderOffset = new THREE.Vector3(1.5, 2.5, 3.8);
-        camera.position.copy(char.position).add(shoulderOffset);
+        const walkTime = Math.min(tLocal, 5.1);
+        animateWalk(char, walkTime, 3.6);
+        char.position.z = 4 - walkTime * 0.45;
+        camera.position.set(1.5, char.position.y + 2.5, char.position.z + 3.8);
         camera.lookAt(char.position.x, 1.5, char.position.z - 1.2);
 
-        const flashMat = flashPlane.material as THREE.MeshBasicMaterial;
-        if (tLocal >= 4.95 && tLocal < 5.08) flashMat.opacity = 1;
-        else if (tLocal >= 5.08 && tLocal < 7.0) flashMat.opacity = Math.max(0, 1 - (tLocal - 5.08) / 1.9);
-        else flashMat.opacity = 0;
-
-        if (tLocal >= 5.18) {
-          blastSphere.visible = true;
-          const scale = (tLocal - 5.18) * 5.2;
-          blastSphere.scale.setScalar(scale);
-          (blastSphere.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.46 - scale * 0.03);
-        }
-
-        if (tLocal >= 5.9) {
-          debris.visible = true;
+        const age = Math.max(0, tLocal - 4.95);
+        const pulse = easeInOutCubic(age / 0.45) * (1 - easeInOutCubic((age - 0.45) / 3.8));
+        glow.visible = pulse > 0;
+        glow.material.opacity = pulse * 0.92;
+        glow.scale.setScalar(3 + 16 * easeOutCubic(age / 2.6));
+        fill.intensity = pulse * 1.6;
+        debris.visible = tLocal > 5.9 && tLocal < 13.9;
+        if (debris.visible) {
+          debris.material.opacity = 0.65 * easeInOutCubic((tLocal - 5.9) / 0.8)
+            * (1 - easeInOutCubic((tLocal - 9.9) / 4));
           const pos = debris.geometry.attributes.position.array as Float32Array;
           const dt = tLocal - 5.9;
           for (let i = 0; i < pos.length; i += 3) {
@@ -1043,7 +1042,7 @@ export default function App() {
           debris.geometry.attributes.position.needsUpdate = true;
         }
       },
-      cleanup: () => {},
+      cleanup: () => { texture.dispose(); glow.material.dispose(); },
     };
   }
 

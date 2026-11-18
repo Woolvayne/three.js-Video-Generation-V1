@@ -1,13 +1,6 @@
 {
   "scenes": [
     {
-      "id": "s00_note",
-      "duration": 4,
-      "text": "Hypothetisches Szenario. Keine Vorhersage. Zahlen sind Schätzungen basierend auf NUKEMAP und BBK.",
-      "voice": "calm_male",
-      "speed": 1.0
-    },
-    {
       "id": "s01_hook",
       "duration": 8,
       "text": "30 Tage. Was passiert, wenn eine 15 Kilotonnen Luftdetonation eine Stadt trifft? Und wie bereitet man sich vor?",
