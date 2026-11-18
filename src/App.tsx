@@ -33,7 +33,7 @@ const SCENES_RAW = [
   { id: "s02_blast", duration: 23, label: "02 Blitz", subtitle: ["Tag Null — Der Lichtblitz.", "Sofort Schutz im Gebäude suchen."] },
   { id: "s03_dust", duration: 20, label: "03 Staub", subtitle: ["Stunde 1 — Staub und Dunkelheit.", "Keller oder Innenraum: beste Wahl."] },
   { id: "s04_fire", duration: 20, label: "04 Ringe", subtitle: ["Tag 1–3 — Zerstörungsringe.", "ca. 1,6 km: schwere Schäden (NUKEMAP)"] },
-  { id: "s05_water", duration: 25, label: "05 Wasser", subtitle: ["Woche 1 — Vorräte anlegen.", "10 Tage · 2 Liter pro Person und Tag."] },
+  { id: "s05_water", duration: 25, label: "05 Wasser", subtitle: ["Woche 1 — Vorräte anlegen.", "Trinkwasser: 2 Liter pro Person und Tag."] },
   { id: "s06_plume", duration: 25, label: "06 Wolke", subtitle: ["Woche 2–3 — Radioaktive Wolke.", "NINA-App · Radio · Im Gebäude bleiben."] },
   { id: "s07_day30", duration: 20, label: "07 Tag 30", subtitle: ["Tag 30 — Erste Schritte.", "Nachbarschaft und Wiederaufbau."] },
   { id: "s08_outro", duration: 10, label: "08 Outro", subtitle: ["Vorbereitung rettet Leben.", "bbk.bund.de/notfallvorsorge"] },
@@ -1191,17 +1191,19 @@ export default function App() {
     silhouette.position.set(3.55, 1.08, 0.1);
     root.add(silhouette);
 
-    const info = makeTextSprite(["BBK: 10 Tage Vorrat", "2 Liter Wasser pro Person / Tag"], { font: 28, width: 720, height: 140, bg: "rgba(12,18,26,0.88)" });
-    info.position.set(0.6, 3.7, -0.4);
-    root.add(info);
+    // Soft window light separates the transparent bottles from the back wall.
+    const windowLight = new THREE.PointLight(0xffedcf, 42, 15);
+    windowLight.position.set(-1.6, 3.5, 1.4);
+    root.add(windowLight);
 
     return {
       id: "s05_water",
       root,
       previewTime: 16.5,
       update: (tLocal, camera) => {
-        camera.position.set(2.2, 2.55, 3.9);
-        camera.lookAt(0.5, 1.1, -1.4);
+        const push = easeInOutCubic(tLocal / 25);
+        camera.position.set(2.6 - push * 0.45, 3.0 - push * 0.18, 5.8 - push * 0.55);
+        camera.lookAt(0.05, 1.05, -1.1);
         animateWalk(char, tLocal * 0.45, 1.3);
         char.position.x = -0.65 + Math.sin(tLocal * 0.38) * 0.26;
         if (tLocal > 14) {
@@ -1408,6 +1410,7 @@ export default function App() {
 
   function renderFilmFrame(frame: number) {
     const t = frame / FPS;
+    setProgress(frame / TOTAL_FRAMES);
     const sceneInfo = getSceneForTime(t);
     const camera = cameraRef.current!;
     if (!runtimeRef.current || runtimeRef.current.id !== sceneInfo.id) {
@@ -1419,12 +1422,13 @@ export default function App() {
     const renderer = rendererRef.current!;
     renderer.clear();
     renderer.render(sceneRef.current!, camera);
+    grainRef.current?.render(frame);
     if (subtitleSceneRef.current && subtitleCameraRef.current) {
       renderer.autoClear = false;
       renderer.render(subtitleSceneRef.current, subtitleCameraRef.current);
       renderer.autoClear = true;
     }
-    grainRef.current?.render(frame);
+
   }
 
   function stopPlayback(toEditor = true) {
@@ -1465,7 +1469,7 @@ export default function App() {
       }
 
       renderFilmFrame(frameRef.current);
-      setProgress(frameRef.current / TOTAL_FRAMES);
+
       rafRef.current = requestAnimationFrame(loop);
     };
 
