@@ -1,0 +1,67 @@
+{
+  "scenes": [
+    {
+      "id": "s00_note",
+      "duration": 4,
+      "text": "Hypothetisches Szenario. Keine Vorhersage. Zahlen sind Schätzungen basierend auf NUKEMAP und BBK.",
+      "voice": "calm_male",
+      "speed": 1.0
+    },
+    {
+      "id": "s01_hook",
+      "duration": 8,
+      "text": "30 Tage. Was passiert, wenn eine 15 Kilotonnen Luftdetonation eine Stadt trifft? Und wie bereitet man sich vor?",
+      "voice": "calm_male",
+      "speed": 1.0
+    },
+    {
+      "id": "s02_blast",
+      "duration": 23,
+      "text": "Tag Null. Der Lichtblitz. Suchen Sie sofort Schutz im Inneren eines Gebäudes. Meiden Sie Fenster. Glassplitter sind die häufigste Verletzungsursache.",
+      "voice": "calm_male",
+      "speed": 1.0
+    },
+    {
+      "id": "s03_dust",
+      "duration": 20,
+      "text": "Stunde Eins. Staub verdunkelt die Sicht. Ein innenliegender Raum oder der Keller bietet den besten Schutz vor der ersten Druckwelle und Trümmern.",
+      "voice": "calm_male",
+      "speed": 1.0
+    },
+    {
+      "id": "s04_fire",
+      "duration": 20,
+      "text": "Tag Eins bis Drei. Die thermische Strahlung verursacht Brände. Im Umkreis von etwa zwei Kilometern entstehen schwere Schäden an Wohngebäuden.",
+      "voice": "calm_male",
+      "speed": 1.0
+    },
+    {
+      "id": "s05_water",
+      "duration": 25,
+      "text": "Woche Eins. Die Infrastruktur ist unterbrochen. Vorräte für zehn Tage sind entscheidend. Pro Person etwa zwei Liter Wasser am Tag einplanen.",
+      "voice": "calm_male",
+      "speed": 1.0
+    },
+    {
+      "id": "s06_plume",
+      "duration": 25,
+      "text": "Woche Zwei bis Drei. Die radioaktive Wolke zieht mit dem Wind. Bleiben Sie informiert über Batterie-Radio oder Cell Broadcast. Meiden Sie das Freie.",
+      "voice": "calm_male",
+      "speed": 1.0
+    },
+    {
+      "id": "s07_day30",
+      "duration": 20,
+      "text": "Tag Dreißig. Erste Schritte zurück in die Gemeinschaft. Organisierte Hilfe und Nachbarschaft sind nun der Schlüssel zum Überleben und Wiederaufbau.",
+      "voice": "calm_male",
+      "speed": 1.0
+    },
+    {
+      "id": "s08_outro",
+      "duration": 10,
+      "text": "Vorbereitung rettet Leben. Informieren Sie sich beim Bundesamt für Bevölkerungsschutz und Katastrophenhilfe. Bleiben Sie ruhig. Bleiben Sie sicher.",
+      "voice": "calm_male",
+      "speed": 1.0
+    }
+  ]
+}
