@@ -1,0 +1,74 @@
+[
+  {
+    "id": "s01_hook",
+    "duration": 8,
+    "label": "01 Hook",
+    "subtitle": [
+      "30 Tage.",
+      "Was passiert bei einer 15-Kilotonnen-Detonation?"
+    ]
+  },
+  {
+    "id": "s02_blast",
+    "duration": 23,
+    "label": "02 Blitz",
+    "subtitle": [
+      "Tag Null — Der Lichtblitz.",
+      "Sofort Schutz im Gebäude suchen."
+    ]
+  },
+  {
+    "id": "s03_dust",
+    "duration": 20,
+    "label": "03 Staub",
+    "subtitle": [
+      "Stunde 1 — Staub und Dunkelheit.",
+      "Keller oder Innenraum: beste Wahl."
+    ]
+  },
+  {
+    "id": "s04_fire",
+    "duration": 20,
+    "label": "04 Ringe",
+    "subtitle": [
+      "Tag 1–3 — Zerstörungsringe.",
+      "ca. 1,6 km: schwere Schäden (NUKEMAP)"
+    ]
+  },
+  {
+    "id": "s05_water",
+    "duration": 25,
+    "label": "05 Wasser",
+    "subtitle": [
+      "Woche 1 — Vorräte anlegen.",
+      "Trinkwasser: 2 Liter pro Person und Tag."
+    ]
+  },
+  {
+    "id": "s06_plume",
+    "duration": 25,
+    "label": "06 Wolke",
+    "subtitle": [
+      "Woche 2–3 — Radioaktive Wolke.",
+      "NINA-App · Radio · Im Gebäude bleiben."
+    ]
+  },
+  {
+    "id": "s07_day30",
+    "duration": 20,
+    "label": "07 Tag 30",
+    "subtitle": [
+      "Tag 30 — Erste Schritte.",
+      "Nachbarschaft und Wiederaufbau."
+    ]
+  },
+  {
+    "id": "s08_outro",
+    "duration": 10,
+    "label": "08 Outro",
+    "subtitle": [
+      "Vorbereitung rettet Leben.",
+      "bbk.bund.de/notfallvorsorge"
+    ]
+  }
+]
