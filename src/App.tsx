@@ -1,3 +1,4 @@
+import SCENES_RAW from "./timeline.json";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { cloneModel, loadModelLibrary, type ModelLibrary } from "./lib/modelLibrary";
@@ -28,17 +29,6 @@ const PALETTE = {
   slate: 0x93a4b8,
 };
 
-const SCENES_RAW = [
-  { id: "s01_hook", duration: 8, label: "01 Hook", subtitle: ["30 Tage.", "Was passiert bei einer 15-Kilotonnen-Detonation?"] },
-  { id: "s02_blast", duration: 23, label: "02 Blitz", subtitle: ["Tag Null — Der Lichtblitz.", "Sofort Schutz im Gebäude suchen."] },
-  { id: "s03_dust", duration: 20, label: "03 Staub", subtitle: ["Stunde 1 — Staub und Dunkelheit.", "Keller oder Innenraum: beste Wahl."] },
-  { id: "s04_fire", duration: 20, label: "04 Ringe", subtitle: ["Tag 1–3 — Zerstörungsringe.", "ca. 1,6 km: schwere Schäden (NUKEMAP)"] },
-  { id: "s05_water", duration: 25, label: "05 Wasser", subtitle: ["Woche 1 — Vorräte anlegen.", "Trinkwasser: 2 Liter pro Person und Tag."] },
-  { id: "s06_plume", duration: 25, label: "06 Wolke", subtitle: ["Woche 2–3 — Radioaktive Wolke.", "NINA-App · Radio · Im Gebäude bleiben."] },
-  { id: "s07_day30", duration: 20, label: "07 Tag 30", subtitle: ["Tag 30 — Erste Schritte.", "Nachbarschaft und Wiederaufbau."] },
-  { id: "s08_outro", duration: 10, label: "08 Outro", subtitle: ["Vorbereitung rettet Leben.", "bbk.bund.de/notfallvorsorge"] },
-] as const;
-
 let cursor = 0;
 const SCENES = SCENES_RAW.map((scene) => {
   const enriched = { ...scene, start: cursor, end: cursor + scene.duration };
@@ -55,6 +45,11 @@ type Runtime = {
   cleanup: (scene: THREE.Scene) => void;
   previewTime?: number;
 };
+
+function timecode(seconds: number) {
+  const whole = Math.floor(seconds + 1e-7);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
 
 function clamp01(v: number) {
   return Math.min(1, Math.max(0, v));
@@ -372,6 +367,10 @@ function createBackdrop(root: THREE.Group, options?: { dusk?: boolean; sun?: boo
   clouds[1].position.set(8, 15, -25);
   clouds[2].position.set(22, 20, -38);
   clouds.forEach((cloud) => root.add(cloud));
+  const origins = clouds.map(cloud => cloud.position.x);
+  return (t: number) => clouds.forEach((cloud, i) => {
+    cloud.position.x = origins[i] + Math.sin(t * 0.055 + i) * 3;
+  });
 }
 
 function createGround(root: THREE.Group, size = 180, color = PALETTE.grass) {
@@ -396,7 +395,7 @@ function createRoadGrid(root: THREE.Group, blocks = 3, spacing = 12, roadWidth =
     root.add(roadZ);
 
     for (let j = -blocks * 4; j <= blocks * 4; j++) {
-      if (j % 2 !== 0) continue;
+      if (j % 2 !== 0 || (j * 3) % spacing === 0) continue;
       const dashX = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.09, 0.12), lineMat);
       dashX.position.set(j * 3, 0.06, i * spacing);
       root.add(dashX);
@@ -405,6 +404,20 @@ function createRoadGrid(root: THREE.Group, blocks = 3, spacing = 12, roadWidth =
       root.add(dashZ);
     }
   }
+  const stripes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.23, 0.02, 0.78), lineMat, 20);
+  const stripe = new THREE.Object3D();
+  for (let side = 0; side < 4; side++) {
+    const angle = side * Math.PI / 2;
+    for (let i = 0; i < 5; i++) {
+      const offset = (i - 2) * 0.44;
+      stripe.position.set(offset * Math.cos(angle) + 2.15 * Math.sin(angle), 0.085,
+        2.15 * Math.cos(angle) - offset * Math.sin(angle));
+      stripe.rotation.y = angle;
+      stripe.updateMatrix();
+      stripes.setMatrixAt(side * 5 + i, stripe.matrix);
+    }
+  }
+  root.add(stripes);
 }
 
 function fallbackHouseModel() {
@@ -526,8 +539,8 @@ function populateCity(root: THREE.Group, models: ModelLibrary | null, blocks: nu
   for (let gx = -blocks; gx <= blocks; gx++) {
     for (let gz = -blocks; gz <= blocks; gz++) {
       if (Math.abs(gx) + Math.abs(gz) < 1) continue;
-      const centerX = gx * spacing;
-      const centerZ = gz * spacing;
+      const centerX = (gx + 0.5) * spacing;
+      const centerZ = (gz + 0.5) * spacing;
       const count = 2 + Math.floor(rng() * 4);
       for (let i = 0; i < count; i++) {
         const x = centerX + (rng() - 0.5) * 6.8;
@@ -748,6 +761,26 @@ export default function App() {
   const [activePanelScene, setActivePanelScene] = useState("MAP");
   const [modelsReady, setModelsReady] = useState(false);
 
+  const sound = useRef<AudioContext | null>(null);
+  const voice = useRef<AudioBuffer | null>(null);
+  const speaker = useRef<AudioBufferSourceNode | null>(null);
+  const mix = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const [voiceName, setVoiceName] = useState("");
+  const [loadingVoice, setLoadingVoice] = useState(false);
+  function silence() { speaker.current?.stop(); speaker.current?.disconnect(); speaker.current = null; }
+  async function importVoice(file?: File) {
+    if (!file) return;
+    setLoadingVoice(true);
+    try {
+      const ctx = sound.current ??= new AudioContext();
+      await ctx.resume();
+      const audio = await ctx.decodeAudioData(await file.arrayBuffer());
+      mix.current ??= ctx.createMediaStreamDestination();
+      voice.current = audio;
+      setVoiceName(file.name);
+    } catch { setStatus("Audiodatei nicht lesbar. Bitte WAV oder MP3 wählen."); }
+    finally { setLoadingVoice(false); }
+  }
   const recorderRef = useRef<MediaRecorder | null>(null);
 
   function setSceneBackground(kind: "day" | "dusk" | "night") {
@@ -774,7 +807,7 @@ export default function App() {
     root.name = "editorRoot";
     setSceneBackground("dusk");
     createGround(root, 220, PALETTE.grassDark);
-    createBackdrop(root, { dusk: true, sun: true, mountains: true, water: true });
+    const driftClouds = createBackdrop(root, { dusk: true, sun: true, mountains: true, water: true });
     createRoadGrid(root, 3, 12, 2.8);
     populateCity(root, modelsRef.current, 2, 123);
 
@@ -831,6 +864,7 @@ export default function App() {
       previewTime: 0,
       update: (tLocal, camera) => {
         // Follow the central avenue, facing the tangent as the walker turns.
+        driftClouds(tLocal);
         const phase = tLocal * 0.24;
         char.position.x = 0.7 * Math.sin(phase);
         char.position.z = 5 * Math.cos(phase);
@@ -1388,6 +1422,8 @@ export default function App() {
   function runEditorLoop() {
     cancelAnimationFrame(rafRef.current);
     playModeRef.current = "editor";
+    frameRef.current = 0;
+    setProgress(0);
     setActivePanelScene("MAP");
     mountRuntime(buildRuntime("MAP"));
     setStatus(modelsRef.current ? "Editor bereit — Karte und Stadt sind interaktiv." : "Editor bereit — Modelle laden nach …");
@@ -1409,6 +1445,7 @@ export default function App() {
   }
 
   function renderFilmFrame(frame: number) {
+    frameRef.current = frame;
     const t = frame / FPS;
     setProgress(frame / TOTAL_FRAMES);
     const sceneInfo = getSceneForTime(t);
@@ -1432,6 +1469,7 @@ export default function App() {
   }
 
   function stopPlayback(toEditor = true) {
+    silence();
     cancelAnimationFrame(rafRef.current);
     setPlaying(false);
     setRecording(false);
@@ -1444,12 +1482,24 @@ export default function App() {
   function playFilm(record = false, onFinish?: () => void) {
     cancelAnimationFrame(rafRef.current);
     playModeRef.current = "film";
-    frameRef.current = 0;
+    const firstFrame = record || frameRef.current >= TOTAL_FRAMES - 1 ? 0 : frameRef.current;
+    silence();
+    const ctx = sound.current;
+    if (voice.current && ctx && mix.current && firstFrame / FPS < voice.current.duration) {
+      void ctx.resume();
+      const source = ctx.createBufferSource();
+      source.buffer = voice.current;
+      source.connect(ctx.destination);
+      source.connect(mix.current);
+      source.start(0, firstFrame / FPS);
+      speaker.current = source;
+    }
+    let lastFrame = -1;
     setPlaying(true);
     setRecording(record);
     setProgress(0);
     setStatus(record ? "Aufnahme läuft …" : "Vorschau läuft …");
-    startTimeRef.current = performance.now();
+    startTimeRef.current = performance.now() - firstFrame * 1000 / FPS;
 
     const loop = () => {
       if (playModeRef.current !== "film") return;
@@ -1462,13 +1512,16 @@ export default function App() {
         setPlaying(false);
         setRecording(false);
         setStatus(record ? "Aufnahme fertig." : "Vorschau beendet.");
-        playModeRef.current = "editor";
+        playModeRef.current = "preview";
+        silence();
         onFinish?.();
-        setTimeout(() => runEditorLoop(), 300);
         return;
       }
 
-      renderFilmFrame(frameRef.current);
+      if (frameRef.current !== lastFrame) {
+        renderFilmFrame(frameRef.current);
+        lastFrame = frameRef.current;
+      }
 
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -1477,8 +1530,11 @@ export default function App() {
   }
 
   function handlePlay() {
-    if (playing) return;
-    playFilm(false);
+    if (recording) return;
+    if (playing) {
+      stopPlayback(false);
+      setStatus("Vorschau pausiert.");
+    } else playFilm(false);
   }
 
   function handleRecord() {
@@ -1489,6 +1545,7 @@ export default function App() {
       return;
     }
     const stream = rendererRef.current.domElement.captureStream(30);
+    if (voice.current && mix.current) mix.current.stream.getAudioTracks().forEach(track => stream.addTrack(track.clone()));
     let recorder: MediaRecorder;
     try {
       recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 10_000_000 });
@@ -1652,6 +1709,8 @@ export default function App() {
     return () => {
       cancelAnimationFrame(rafRef.current);
       orbitRef.current?.dispose();
+      silence();
+      if (sound.current) void sound.current.close();
       disposed = true;
       renderer.domElement.remove();
       renderer.dispose();
@@ -1691,7 +1750,7 @@ export default function App() {
         <div className="stage" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#0b1016", position: "relative" }}>
           <div className="screen" ref={mountRef} style={{ width: "min(390px, 92%)", height: "min(694px, 94%)", borderRadius: 10, overflow: "hidden", boxShadow: "0 0 0 1px rgba(40,216,255,0.18), 0 16px 60px rgba(0,0,0,0.55)" }} />
 
-          {!playing && (
+          {!playing && activePanelScene === "MAP" && (
             <div style={{ position: "absolute", top: 14, right: 18, background: "rgba(7,12,18,0.82)", border: "1px solid #203247", borderRadius: 8, padding: "10px 12px", fontSize: 11, lineHeight: 1.7, color: "#8fb5d8" }}>
               <div style={{ fontSize: 10, letterSpacing: 1.2, color: "#28d8ff", fontWeight: 800, marginBottom: 4 }}>VIEWPORT</div>
               <div>LMB — Orbit</div>
@@ -1704,22 +1763,32 @@ export default function App() {
 
         <div style={{ background: "#0d1219", borderTop: "1px solid #1b2a3a", padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ width: 44, fontSize: 11, color: "#5f7790" }}>{(progress * TOTAL_DURATION).toFixed(1)}s</span>
-            <div style={{ flex: 1, height: 4, borderRadius: 4, overflow: "hidden", background: "#192433" }}>
-              <div style={{ width: `${progress * 100}%`, height: "100%", background: "linear-gradient(90deg,#1495d0,#28d8ff)" }} />
-            </div>
-            <span style={{ width: 44, fontSize: 11, textAlign: "right", color: "#5f7790" }}>{TOTAL_DURATION}s</span>
+            <span className="timecode">{timecode(progress * TOTAL_DURATION)}</span>
+            <input className="timeline" type="range" aria-label="Filmposition" min={0} max={TOTAL_FRAMES - 1} step={1}
+              value={Math.min(TOTAL_FRAMES - 1, Math.round(progress * TOTAL_FRAMES))} disabled={recording}
+              aria-valuetext={timecode(progress * TOTAL_DURATION)} onChange={event => {
+                stopPlayback(false);
+                renderFilmFrame(event.currentTarget.valueAsNumber);
+                setStatus("Standbild · Play setzt die Vorschau hier fort.");
+              }} />
+            <span className="timecode">{timecode(TOTAL_DURATION)}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span style={{ flex: 1, minWidth: 160, fontSize: 11, color: "#8ca7c0" }}>{status}</span>
             {fmts.mp4 && <span style={{ padding: "2px 8px", fontSize: 10, borderRadius: 999, background: "rgba(26,120,70,0.28)", color: "#7af3ba", border: "1px solid #14573b" }}>MP4 ✓</span>}
             {fmts.webm && <span style={{ padding: "2px 8px", fontSize: 10, borderRadius: 999, background: "rgba(24,90,150,0.28)", color: "#80d4ff", border: "1px solid #1e4d73" }}>WebM ✓</span>}
+            <label className="voice-input" title={voiceName || "Fish-Audio-Spur oder eigene Aufnahme importieren"}>
+              {loadingVoice ? "Lädt …" : voiceName ? "♫ Spur wechseln" : "♫ Sprecher laden"}
+              <input aria-label="Sprecherspur importieren" type="file" accept="audio/*,.wav,.mp3" disabled={playing || loadingVoice}
+                onChange={event => { void importVoice(event.target.files?.[0]); event.target.value = ""; }} />
+            </label>
+            {voiceName && <button disabled={playing || loadingVoice} onClick={() => {voice.current = null; setVoiceName("");}}>Ton entfernen</button>}
             <select value={format} onChange={(e) => setFormat(e.target.value as "mp4" | "webm")} style={{ background: "#10161f", color: "#d6e1ec", border: "1px solid #243447", borderRadius: 6, padding: "5px 7px", fontSize: 11 }}>
               <option value="mp4">MP4</option>
               <option value="webm">WebM</option>
             </select>
-            <button onClick={handlePlay} disabled={playing} style={{ padding: "6px 16px", borderRadius: 6, border: "1px solid #176387", background: playing ? "#1a2a36" : "#0d3f59", color: "#b7ecff", fontWeight: 800, fontSize: 12, cursor: playing ? "default" : "pointer" }}>▶ PLAY</button>
-            <button onClick={handleRecord} disabled={playing} style={{ padding: "6px 16px", borderRadius: 6, border: "1px solid #7a1b1b", background: recording ? "#7a1010" : playing ? "#231418" : "#421012", color: "#ffb7b7", fontWeight: 800, fontSize: 12, cursor: playing ? "default" : "pointer", boxShadow: recording ? "0 0 18px rgba(255,80,80,0.28)" : "none" }}>{recording ? "● REC" : "⏺ REC"}</button>
+            <button onClick={handlePlay} disabled={recording || loadingVoice} style={{ padding: "6px 16px", borderRadius: 6, border: "1px solid #176387", background: playing ? "#1a2a36" : "#0d3f59", color: "#b7ecff", fontWeight: 800, fontSize: 12, cursor: playing ? "default" : "pointer" }}>{playing && !recording ? "Ⅱ PAUSE" : "▶ PLAY"}</button>
+            <button onClick={handleRecord} disabled={playing || loadingVoice} style={{ padding: "6px 16px", borderRadius: 6, border: "1px solid #7a1b1b", background: recording ? "#7a1010" : playing ? "#231418" : "#421012", color: "#ffb7b7", fontWeight: 800, fontSize: 12, cursor: playing ? "default" : "pointer", boxShadow: recording ? "0 0 18px rgba(255,80,80,0.28)" : "none" }}>{recording ? "● REC" : "⏺ REC"}</button>
             <button onClick={handleStop} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #314355", background: "#131a23", color: "#a5b9cd", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>■ STOP</button>
           </div>
         </div>
